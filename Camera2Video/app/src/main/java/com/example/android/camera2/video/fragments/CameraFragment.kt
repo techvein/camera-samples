@@ -51,6 +51,7 @@ import com.example.android.camera2.video.BuildConfig
 import com.example.android.camera2.video.CameraActivity
 import com.example.android.camera2.video.R
 import com.example.android.camera2.video.recorder.VideoRecorder
+import com.example.android.camera2.video.recorder.VideoRecorderSession
 import com.example.android.camera2.video.recorder.getPreviewOutputSize
 import kotlinx.android.synthetic.main.fragment_camera.*
 import kotlinx.coroutines.Dispatchers
@@ -63,6 +64,7 @@ import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
 
 class CameraFragment : Fragment() {
+    private var videoRecordingSession: VideoRecorderSession? = null
     private val videoRecorder by lazy { VideoRecorder(requireContext(), Size(args.width, args.height), args.fps, false) }
 
     private var isRecording = false
@@ -207,7 +209,7 @@ class CameraFragment : Fragment() {
                     requireActivity().requestedOrientation =
                             ActivityInfo.SCREEN_ORIENTATION_LOCKED
 
-                    videoRecorder.startRecording()
+                    videoRecordingSession = videoRecorder.startRecordingSession()
                     Log.d(TAG, "Recording started")
 
                     // Starts recording animation
@@ -219,7 +221,9 @@ class CameraFragment : Fragment() {
 
                 val outputFile: File
                 try {
-                    outputFile = videoRecorder.stopRecording()
+                    val videoRecordingSession = videoRecordingSession ?: return@launch
+                    outputFile = videoRecordingSession.stopRecording()
+                    this@CameraFragment.videoRecordingSession = null
                     Log.d(TAG, "Recording stopped. Output file: $outputFile")
                 } finally {
                     // Unlocks screen rotation after recording finished
@@ -307,6 +311,11 @@ class CameraFragment : Fragment() {
         super.onStop()
         Log.d(TAG, "onStop()")
         try {
+            val videoRecordingSession = videoRecordingSession
+            if (videoRecordingSession != null) {
+                videoRecordingSession.cancel()
+                this.videoRecordingSession = null
+            }
             camera.close()
         } catch (exc: Throwable) {
             Log.e(TAG, "Error closing camera", exc)

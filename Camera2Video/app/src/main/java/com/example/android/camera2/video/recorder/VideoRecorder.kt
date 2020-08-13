@@ -61,19 +61,10 @@ class VideoRecorder (
         surface
     }
 
-    private var recorderSession: VideoRecorderSession? = null
-
-    suspend fun startRecording() {
-        val recorderSession = VideoRecorderSession(context, configuration, mediaRecorderFactory, handler, recorderSurface, extraSurfaces, session, relativeOrientation)
+    suspend fun startRecordingSession(): VideoRecorderSession {
+        val recorderSession = VideoRecorderSessionImpl(context, configuration, mediaRecorderFactory, handler, recorderSurface, extraSurfaces, session, relativeOrientation)
         recorderSession.startRecording()
-        this.recorderSession = recorderSession
-    }
-
-    suspend fun stopRecording(): File {
-        val recorderSession = recorderSession ?: throw IllegalStateException("recording not started")
-        val res = recorderSession.stopRecording()
-        this.recorderSession = null
-        return res
+        return recorderSession
     }
 
     fun release() {

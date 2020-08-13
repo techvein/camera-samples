@@ -20,7 +20,15 @@ import kotlinx.coroutines.sync.withLock
 import java.io.File
 import java.util.*
 
-internal class VideoRecorderSession(
+/**
+ * 録画中をあらわす録画セッションクラス。
+ * インスタンスを解放するまえに、必ず cancel または stopRecording を実行して処理を終了させること。
+ */
+interface VideoRecorderSession {
+    suspend fun stopRecording(): File
+    fun cancel()
+}
+internal class VideoRecorderSessionImpl(
     private val context: Context,
     private val configuration: VideoRecorderConfiguration,
     private val mediaRecorderFactory: MediaRecorderFactory,
@@ -31,7 +39,7 @@ internal class VideoRecorderSession(
     private val session: CameraCaptureSession,
     /** Live data listener for changes in the device orientation relative to the camera */
     private val relativeOrientation: OrientationLiveData
-) {
+): VideoRecorderSession {
 
     private var recordingStartMillis: Long = 0L
 
@@ -109,12 +117,12 @@ internal class VideoRecorderSession(
      * レコーディングを停止して、出力ファイルを返す。
      * インスタンスあたりのoutputFileは固定(コンストラクタでの指定またはインスタンス化時の自動生成)なので、このメソッドは常に同一ファイルインスタンスを返します。
      */
-    suspend fun stopRecording(): File {
+    override suspend fun stopRecording(): File {
         mutex.withLock {
             log("stopRecording(): start")
             // Requires recording of at least MIN_REQUIRED_RECORDING_TIME_MILLIS
             val elapsedTimeMillis = System.currentTimeMillis() - recordingStartMillis
-            if (elapsedTimeMillis < VideoRecorderSession.MIN_REQUIRED_RECORDING_TIME_MILLIS) {
+            if (elapsedTimeMillis < MIN_REQUIRED_RECORDING_TIME_MILLIS) {
                 log("stopRecording(): delay-start")
                 delay(MIN_REQUIRED_RECORDING_TIME_MILLIS - elapsedTimeMillis)
                 log("stopRecording(): delay-end")
@@ -131,6 +139,13 @@ internal class VideoRecorderSession(
             recorder = null
             return configuration.outputFile
         }
+    }
+
+    /** レコーディングを中断する。 */
+    override fun cancel() {
+        recorder?.stop()
+        recorder?.release()
+        recorder = null
     }
 
     companion object {
