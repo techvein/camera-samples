@@ -25,7 +25,7 @@ import kotlin.math.max
 import kotlin.math.min
 
 /** Helper class used to pre-compute shortest and longest sides of a [Size] */
-class SmartSize(width: Int, height: Int) {
+internal class SmartSize(width: Int, height: Int) {
     var size = Size(width, height)
     var long = max(size.width, size.height)
     var short = min(size.width, size.height)
@@ -33,10 +33,10 @@ class SmartSize(width: Int, height: Int) {
 }
 
 /** Standard High Definition size for pictures and video */
-val SIZE_1080P: SmartSize = SmartSize(1920, 1080)
+internal val SIZE_1080P: SmartSize = SmartSize(1920, 1080)
 
 /** Returns a [SmartSize] object for the given [Display] */
-fun getDisplaySmartSize(display: Display): SmartSize {
+internal fun getDisplaySmartSize(display: Display): SmartSize {
     val outPoint = Point()
     display.getRealSize(outPoint)
     return SmartSize(outPoint.x, outPoint.y)
@@ -47,7 +47,7 @@ fun getDisplaySmartSize(display: Display): SmartSize {
  * https://d.android.com/reference/android/hardware/camera2/CameraDevice and
  * https://developer.android.com/reference/android/hardware/camera2/params/StreamConfigurationMap
  */
-fun <T>getPreviewOutputSize(
+internal fun <T>getPreviewOutputSize(
         display: Display,
         characteristics: CameraCharacteristics,
         targetClass: Class<T>,
