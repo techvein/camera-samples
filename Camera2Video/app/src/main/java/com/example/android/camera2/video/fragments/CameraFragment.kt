@@ -42,6 +42,7 @@ import androidx.core.graphics.drawable.toDrawable
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Observer
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.whenResumed
 import androidx.navigation.NavController
 import androidx.navigation.Navigation
 import androidx.navigation.fragment.navArgs
@@ -65,7 +66,7 @@ import kotlin.coroutines.suspendCoroutine
 
 class CameraFragment : Fragment() {
     private var videoRecordingSession: VideoRecorderSession? = null
-    private val videoRecorder by lazy { VideoRecorder(requireContext(), Size(args.width, args.height), args.fps, false) }
+    private var videoRecorder: VideoRecorder? = null
 
     /** AndroidX navigation arguments */
     private val args: CameraFragmentArgs by navArgs()
@@ -118,6 +119,8 @@ class CameraFragment : Fragment() {
 
     /** The [CameraDevice] that will be opened in this fragment */
     private lateinit var camera: CameraDevice
+
+    private var isCameraActive = false
 
     /** Requests used for preview only in the [CameraCaptureSession] */
     private val previewRequest: CaptureRequest by lazy {
@@ -181,12 +184,14 @@ class CameraFragment : Fragment() {
      */
     @SuppressLint("ClickableViewAccessibility")
     private fun initializeCamera() = lifecycleScope.launch(Dispatchers.Main) {
-
         // Open the selected camera
         camera = openCamera(cameraManager, args.cameraId, cameraHandler)
 
+        val _videoRecorder = VideoRecorder(requireContext(), Size(args.width, args.height), args.fps, false)
+        this@CameraFragment.videoRecorder = _videoRecorder
+
         // Creates list of Surfaces where the camera will output frames
-        val targets = listOf(viewFinder.holder.surface, videoRecorder.recorderSurface)
+        val targets = listOf(viewFinder.holder.surface, _videoRecorder.recorderSurface)
 
         // Start a capture session using our open camera and list of Surfaces where frames will go
         session = createCaptureSession(camera, targets, cameraHandler)
@@ -195,56 +200,61 @@ class CameraFragment : Fragment() {
         //  session.stopRepeating() is called
         session.setRepeatingRequest(previewRequest, null, cameraHandler)
 
-        videoRecorder.setup(session, listOf(viewFinder.holder.surface), relativeOrientation)
+        _videoRecorder.setup(session, listOf(viewFinder.holder.surface), relativeOrientation)
 
         // React to user touching the capture button
         capture_button.setOnClickListener { _ ->
             lifecycleScope.launch(Dispatchers.IO) {
-                Log.d(TAG, "inomata onclick isrecording=${videoRecordingSession != null}")
-                if (videoRecordingSession == null) {
-                    // Prevents screen rotation during the video recording
-                    requireActivity().requestedOrientation =
-                            ActivityInfo.SCREEN_ORIENTATION_LOCKED
+                whenResumed {
+                    val videoRecorder = videoRecorder ?: return@whenResumed
+                    Log.d(TAG, "inomata onclick isrecording=${videoRecordingSession != null}")
+                    if (videoRecordingSession == null) {
+                        // Prevents screen rotation during the video recording
+                        requireActivity().requestedOrientation =
+                                ActivityInfo.SCREEN_ORIENTATION_LOCKED
 
-                    videoRecordingSession = videoRecorder.startRecordingSession()
-                    Log.d(TAG, "Recording started")
+                        videoRecordingSession = videoRecorder.startRecordingSession()
+                        Log.d(TAG, "Recording started")
 
-                    // Starts recording animation
-                    overlay.post(animationTask)
-                    return@launch
-                }
+                        // Starts recording animation
+                        overlay.post(animationTask)
+                        return@whenResumed
+                    }
 
-                val outputFile: File
-                try {
-                    val videoRecordingSession = videoRecordingSession ?: return@launch
-                    outputFile = videoRecordingSession.stopRecording()
-                    this@CameraFragment.videoRecordingSession = null
+                    val videoRecordingSession = videoRecordingSession ?: return@whenResumed
+                    val outputFile = videoRecordingSession.stopRecording()
+                    clearRecordingState()
                     Log.d(TAG, "Recording stopped. Output file: $outputFile")
-                } finally {
-                    // Unlocks screen rotation after recording finished
-                    requireActivity().requestedOrientation =
-                            ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-                    // Removes recording animation
-                    overlay.removeCallbacks(animationTask)
+
+                    // Launch external activity via intent to play video recorded using our provider
+                    requireActivity().startActivity(Intent().apply {
+                        action = Intent.ACTION_VIEW
+                        type = MimeTypeMap.getSingleton()
+                                .getMimeTypeFromExtension(outputFile.extension)
+                        val authority = "${BuildConfig.APPLICATION_ID}.provider"
+                        data = FileProvider.getUriForFile(requireContext(), authority, outputFile)
+                        flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                                Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    })
+
+
+                    // Finishes our current camera screen
+                    delay(CameraActivity.ANIMATION_SLOW_MILLIS)
+                    navController.popBackStack()
                 }
-
-                // Launch external activity via intent to play video recorded using our provider
-                requireActivity().startActivity(Intent().apply {
-                    action = Intent.ACTION_VIEW
-                    type = MimeTypeMap.getSingleton()
-                            .getMimeTypeFromExtension(outputFile.extension)
-                    val authority = "${BuildConfig.APPLICATION_ID}.provider"
-                    data = FileProvider.getUriForFile(requireContext(), authority, outputFile)
-                    flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or
-                            Intent.FLAG_ACTIVITY_CLEAR_TOP
-                })
-
-
-                // Finishes our current camera screen
-                delay(CameraActivity.ANIMATION_SLOW_MILLIS)
-                navController.popBackStack()
             }
         }
+
+        isCameraActive = true
+    }
+
+    private fun clearRecordingState() {
+        videoRecordingSession = null
+        activity?.requestedOrientation =
+                ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        // Removes recording animation
+        overlay.removeCallbacks(animationTask)
+
     }
 
     /** Opens the camera and returns the opened device (as the result of the suspend coroutine) */
@@ -305,12 +315,15 @@ class CameraFragment : Fragment() {
     override fun onStop() {
         super.onStop()
         Log.d(TAG, "onStop()")
+        isCameraActive = false
         try {
             val videoRecordingSession = videoRecordingSession
             if (videoRecordingSession != null) {
                 videoRecordingSession.cancel()
-                this.videoRecordingSession = null
+                clearRecordingState()
             }
+            videoRecorder?.release()
+            videoRecorder = null
             camera.close()
         } catch (exc: Throwable) {
             Log.e(TAG, "Error closing camera", exc)
@@ -320,7 +333,6 @@ class CameraFragment : Fragment() {
     override fun onDestroy() {
         super.onDestroy()
         cameraThread.quitSafely()
-        videoRecorder.release()
     }
 
     companion object {
