@@ -84,7 +84,7 @@ class VideoRecorder(
         context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
     }
 
-    private val recorder: MediaRecorder by lazy { createRecorder(recorderSurface) }
+    private lateinit var recorder: MediaRecorder
 
     /** Requests used for preview and recording in the [CameraCaptureSession] */
     private val recordRequest: CaptureRequest by lazy {
@@ -119,6 +119,7 @@ class VideoRecorder(
 
     suspend fun startRecording() {
         mutex.withLock {
+            recorder = createRecorder(recorderSurface)
             log("startRecording(): start")
             // camera-samples サンプルでは setRepeatingRequest は listener=nullでもhandlerを指定していますが、
             // ドキュメントからもAOSPソースからもhandlerはlistenerの反応スレッドを制御するためだけに使われるようなので、handlerは使わないことにしました。
