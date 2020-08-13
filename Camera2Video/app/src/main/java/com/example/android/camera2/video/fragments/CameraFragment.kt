@@ -67,8 +67,6 @@ class CameraFragment : Fragment() {
     private var videoRecordingSession: VideoRecorderSession? = null
     private val videoRecorder by lazy { VideoRecorder(requireContext(), Size(args.width, args.height), args.fps, false) }
 
-    private var isRecording = false
-
     /** AndroidX navigation arguments */
     private val args: CameraFragmentArgs by navArgs()
 
@@ -202,9 +200,8 @@ class CameraFragment : Fragment() {
         // React to user touching the capture button
         capture_button.setOnClickListener { _ ->
             lifecycleScope.launch(Dispatchers.IO) {
-                Log.d(TAG, "inomata onclick isrecording=$isRecording")
-                if (!isRecording) {
-                    isRecording = true
+                Log.d(TAG, "inomata onclick isrecording=${videoRecordingSession != null}")
+                if (videoRecordingSession == null) {
                     // Prevents screen rotation during the video recording
                     requireActivity().requestedOrientation =
                             ActivityInfo.SCREEN_ORIENTATION_LOCKED
@@ -216,8 +213,6 @@ class CameraFragment : Fragment() {
                     overlay.post(animationTask)
                     return@launch
                 }
-
-                isRecording = false
 
                 val outputFile: File
                 try {
