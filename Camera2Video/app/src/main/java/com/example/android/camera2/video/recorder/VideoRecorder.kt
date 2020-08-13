@@ -32,6 +32,8 @@ class VideoRecorder(
     private val videoSize: Size,
     /** ビデオ録画FPS */
     private val videoFps: Int,
+    /** 音声録画するか */
+    private val withAudio: Boolean,
     /** 出力ファイルパス。省略時は自動で生成します。 */
     outputFile: File? = null
 ) {
@@ -77,13 +79,6 @@ class VideoRecorder(
 //    private var mediaRecorder: MediaRecorder? = null
     private var recordingStartMillis: Long = 0L
 
-
-    /** Detects, characterizes, and connects to a CameraDevice (used for all camera operations) */
-    val cameraManager: CameraManager by lazy {
-        val context = context.applicationContext
-        context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
-    }
-
     private lateinit var recorder: MediaRecorder
 
     /** Requests used for preview and recording in the [CameraCaptureSession] */
@@ -99,16 +94,18 @@ class VideoRecorder(
     }
     /** Creates a [MediaRecorder] instance using the provided [Surface] as input */
     private fun createRecorder(surface: Surface, dummy: Boolean = false) = MediaRecorder().apply {
-        setAudioSource(MediaRecorder.AudioSource.MIC)
         setVideoSource(MediaRecorder.VideoSource.SURFACE)
         setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
         setOutputFile(outputFile.absolutePath)
-        setAudioSamplingRate(AUDIO_SAMPLING_RATE)
         setVideoEncodingBitRate(VideoRecorder.VIDEO_BITRATE)
         if (videoFps > 0) setVideoFrameRate(videoFps)
         setVideoSize(videoSize.width, videoSize.height)
         setVideoEncoder(MediaRecorder.VideoEncoder.H264)
-        setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+        if (withAudio) {
+            setAudioSource(MediaRecorder.AudioSource.MIC)
+            setAudioSamplingRate(AUDIO_SAMPLING_RATE)
+            setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+        }
         setInputSurface(surface)
 
         if (dummy) {

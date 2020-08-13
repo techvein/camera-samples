@@ -17,6 +17,7 @@
 package com.example.android.camera2.video.fragments
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.graphics.Color
@@ -62,7 +63,7 @@ import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
 
 class CameraFragment : Fragment() {
-    private val videoRecorder by lazy { VideoRecorder(requireContext(), Size(args.width, args.height), args.fps) }
+    private val videoRecorder by lazy { VideoRecorder(requireContext(), Size(args.width, args.height), args.fps, false) }
 
     private var isRecording = false
 
@@ -75,8 +76,10 @@ class CameraFragment : Fragment() {
     }
 
     /** Detects, characterizes, and connects to a CameraDevice (used for all camera operations) */
-    private val cameraManager: CameraManager
-        get() = videoRecorder.cameraManager
+    private val cameraManager: CameraManager by lazy {
+        val context = requireContext().applicationContext
+        context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+    }
 
     /** [CameraCharacteristics] corresponding to the provided Camera ID */
     private val characteristics: CameraCharacteristics by lazy {
