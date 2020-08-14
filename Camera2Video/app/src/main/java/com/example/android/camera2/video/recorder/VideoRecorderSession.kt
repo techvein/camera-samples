@@ -135,15 +135,13 @@ internal class VideoRecorderSessionImpl(
             // Requires recording of at least MIN_REQUIRED_RECORDING_TIME_MILLIS
             val elapsedTimeMillis = System.currentTimeMillis() - recordingStartMillis
             if (elapsedTimeMillis < MIN_REQUIRED_RECORDING_TIME_MILLIS) {
-                log("stopRecording(): delay-start")
                 delay(MIN_REQUIRED_RECORDING_TIME_MILLIS - elapsedTimeMillis)
-                log("stopRecording(): delay-end")
             }
 
             try {
                 recorder?.stop()
             } catch(e: RuntimeException) {
-                throw RecordingException("MediaRecorder stopped too early.", e)
+                throw RecordingException("MediaRecorder stopped too early. ${e.message}", e)
             } finally {
                 release()
             }
