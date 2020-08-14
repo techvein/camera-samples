@@ -52,13 +52,14 @@ import com.example.android.camera2.video.BuildConfig
 import com.example.android.camera2.video.CameraActivity
 import com.example.android.camera2.video.R
 import com.example.android.camera2.video.recorder.VideoRecorder
+import com.example.android.camera2.video.recorder.VideoRecorderConfiguration
 import com.example.android.camera2.video.recorder.VideoRecorderSession
+import com.example.android.camera2.video.recorder.getPreviewOutputSize
 import kotlinx.android.synthetic.main.fragment_camera.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
-import java.io.File
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
@@ -186,7 +187,15 @@ class CameraFragment : Fragment() {
         // Open the selected camera
         camera = openCamera(cameraManager, args.cameraId, cameraHandler)
 
-        val _videoRecorder = VideoRecorder(requireContext(), Size(args.width, args.height), args.fps, false)
+        val _videoRecorder = VideoRecorder(
+                requireContext(),
+                VideoRecorderConfiguration(
+                        Size(args.width, args.height),
+                        args.fps,
+                        false,
+                        VideoRecorder.createFile(requireContext())
+                )
+        )
         this@CameraFragment.videoRecorder = _videoRecorder
 
         // Creates list of Surfaces where the camera will output frames

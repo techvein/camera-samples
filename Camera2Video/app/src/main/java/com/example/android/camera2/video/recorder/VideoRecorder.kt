@@ -7,7 +7,6 @@ import android.hardware.camera2.CameraCaptureSession
 import android.media.MediaCodec
 import android.os.Handler
 import android.os.HandlerThread
-import android.util.Size
 import android.view.Surface
 import androidx.core.content.ContextCompat
 import com.example.android.camera.utils.OrientationLiveData
@@ -23,26 +22,12 @@ import java.util.*
  */
 class VideoRecorder (
     private val context: Context,
-    /** ビデオ録画サイズ */
-    videoSize: Size,
-    /** ビデオ録画FPS。VideoCameraHelper::getFps()で計算可能です。 */
-    videoFps: Int,
-    /** 音声録画するか */
-    withAudio: Boolean,
-    /** 出力ファイルパス。省略時は自動で生成します。 */
-    outputFile: File? = null
+    private val configuration: VideoRecorderConfiguration
 ) {
     /** [HandlerThread] where all camera operations run */
     private val backgroundThread = HandlerThread("VideoCallbackThread").apply { start() }
     /** [Handler] corresponding to [cameraThread] */
     private val handler  = Handler(backgroundThread.looper)
-
-    private val configuration: VideoRecorderConfiguration = VideoRecorderConfiguration(
-            videoSize = videoSize,
-            videoFps = videoFps,
-            withAudio = withAudio,
-            outputFile = outputFile ?: createFile(context)
-    )
 
     /** 利用側でプレビューなどに使うsurface群 */
     private var extraSurfaces = ArrayList<Surface>()
@@ -97,8 +82,6 @@ class VideoRecorder (
     fun requiredPermissions() = requiredPermissions(configuration.withAudio)
 
     companion object {
-        private val TAG = VideoRecorder::class.java.simpleName
-
         /** Creates a [File] named with the current date and time */
         fun createFile(context: Context): File {
             val sdf = SimpleDateFormat("yyyy_MM_dd_HH_mm_ss_SSS", Locale.US)
