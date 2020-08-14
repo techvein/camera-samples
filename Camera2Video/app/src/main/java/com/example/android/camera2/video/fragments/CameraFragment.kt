@@ -210,7 +210,7 @@ class CameraFragment : Fragment() {
                 VideoRecorderConfiguration(
                         Size(args.width, args.height),
                         args.fps,
-                        false,
+                        true,
                         VideoRecorder.createFile(requireContext())
                 )
         )
