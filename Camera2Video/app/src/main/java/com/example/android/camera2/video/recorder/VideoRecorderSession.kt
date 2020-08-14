@@ -18,6 +18,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.io.File
+import java.lang.Exception
+import java.lang.RuntimeException
 import java.util.*
 
 /**
@@ -123,10 +125,13 @@ internal class VideoRecorderSessionImpl(
     /**
      * レコーディングを停止して、出力ファイルを返す。
      * インスタンスあたりのoutputFileは固定(コンストラクタでの指定またはインスタンス化時の自動生成)なので、このメソッドは常に同一ファイルインスタンスを返します。
+     * @exception RecordingException 録画開始から終了が早すぎる場合に発生します。遅延することでなるべく出ないようにしていますが、負荷が高い場合などに起こる可能性がありそうです。
      */
     override suspend fun stopRecording(): File {
         mutex.withLock {
             log("stopRecording(): start")
+            // 録画開始後に即時終了するとRuntimeExceptionが出るため、例外をできるだけ出さない対策。
+            // 早すぎる場合は少し待つ。
             // Requires recording of at least MIN_REQUIRED_RECORDING_TIME_MILLIS
             val elapsedTimeMillis = System.currentTimeMillis() - recordingStartMillis
             if (elapsedTimeMillis < MIN_REQUIRED_RECORDING_TIME_MILLIS) {
@@ -135,29 +140,43 @@ internal class VideoRecorderSessionImpl(
                 log("stopRecording(): delay-end")
             }
 
-            recorder?.stop()
+            try {
+                recorder?.stop()
+            } catch(e: RuntimeException) {
+                throw RecordingException("MediaRecorder stopped too early.", e)
+            } finally {
+                release()
+            }
 
             // Broadcasts the media file to the rest of the system
             MediaScannerConnection.scanFile(
                     context, arrayOf(configuration.outputFile.absolutePath), null, null)
 
             log("stopRecording(): end")
-            recorder?.release()
-            recorder = null
             return configuration.outputFile
         }
     }
 
     /** レコーディングを中断する。 */
     override fun cancel() {
-        recorder?.stop()
+        try {
+            recorder?.stop()
+        } catch (e: RuntimeException) {
+            // 早すぎるストップ時に RuntimeException を起こすが、キャンセル時は何も行う必要がないので無視する。
+            // 詳細はMediaRecorder.stop() のドキュメント参照。
+            log("Suppress RuntimeException caused by MediaRecorder.stop(): $e")
+        }
+        release()
+    }
+
+    private fun release() {
         recorder?.release()
         recorder = null
     }
 
     companion object {
         private val TAG = VideoRecorderSession::class.java.simpleName
-        private const val MIN_REQUIRED_RECORDING_TIME_MILLIS: Long = 5000L
+        private const val MIN_REQUIRED_RECORDING_TIME_MILLIS: Long = 1000L
     }
     private fun log(msg: String) {
         Log.d(TAG, msg)

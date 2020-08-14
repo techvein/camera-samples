@@ -51,6 +51,7 @@ import com.example.android.camera.utils.OrientationLiveData
 import com.example.android.camera2.video.BuildConfig
 import com.example.android.camera2.video.CameraActivity
 import com.example.android.camera2.video.R
+import com.example.android.camera2.video.recorder.RecordingException
 import com.example.android.camera2.video.recorder.VideoRecorder
 import com.example.android.camera2.video.recorder.VideoRecorderConfiguration
 import com.example.android.camera2.video.recorder.VideoRecorderSession
@@ -60,6 +61,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import java.io.File
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
@@ -96,6 +98,10 @@ class CameraFragment : Fragment() {
     /** Performs recording animation of flashing screen */
     private val animationTask: Runnable by lazy {
         Runnable {
+            if (!isAnimationActive) {
+                overlay.foreground = null
+                return@Runnable
+            }
             // Flash white animation
             overlay.foreground = Color.argb(150, 255, 255, 255).toDrawable()
             // Wait for ANIMATION_FAST_MILLIS
@@ -106,6 +112,18 @@ class CameraFragment : Fragment() {
                 overlay.postDelayed(animationTask, CameraActivity.ANIMATION_FAST_MILLIS)
             }, CameraActivity.ANIMATION_FAST_MILLIS)
         }
+    }
+    private var isAnimationActive = false
+
+    private fun startAnimation() {
+        isAnimationActive = true
+        overlay.post(animationTask)
+    }
+
+    private fun stopAnimation() {
+        // Removes recording animation
+        // overlay.removeCallbacks(animationTask)
+        isAnimationActive = false
     }
 
     /** Where the camera preview is displayed */
@@ -225,13 +243,20 @@ class CameraFragment : Fragment() {
                         Log.d(TAG, "Recording started")
 
                         // Starts recording animation
-                        overlay.post(animationTask)
+                        startAnimation()
                         return@whenResumed
                     }
 
                     val videoRecordingSession = videoRecordingSession ?: return@whenResumed
-                    val outputFile = videoRecordingSession.stopRecording()
-                    clearRecordingState()
+                    val outputFile: File
+                    try {
+                        outputFile = videoRecordingSession.stopRecording()
+                    } catch (e: RecordingException) {
+                        Log.d(TAG, "failed to stop recording: $e")
+                        return@whenResumed
+                    } finally {
+                        clearRecordingState()
+                    }
                     Log.d(TAG, "Recording stopped. Output file: $outputFile")
 
                     // Launch external activity via intent to play video recorded using our provider
@@ -260,9 +285,7 @@ class CameraFragment : Fragment() {
         videoRecordingSession = null
         activity?.requestedOrientation =
                 ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-        // Removes recording animation
-        overlay.removeCallbacks(animationTask)
-
+        stopAnimation()
     }
 
     /** Opens the camera and returns the opened device (as the result of the suspend coroutine) */
