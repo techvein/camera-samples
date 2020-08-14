@@ -25,7 +25,14 @@ import java.util.*
  * インスタンスを解放するまえに、必ず cancel または stopRecording を実行して処理を終了させること。
  */
 interface VideoRecorderSession {
+    /**
+     * 録画停止する。
+     */
     suspend fun stopRecording(): File
+
+    /**
+     * 録画を中断する。
+     */
     fun cancel()
 }
 internal class VideoRecorderSessionImpl(
