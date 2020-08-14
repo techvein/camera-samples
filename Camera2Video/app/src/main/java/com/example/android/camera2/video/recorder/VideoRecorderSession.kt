@@ -3,13 +3,9 @@ package com.example.android.camera2.video.recorder
 import android.content.Context
 import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraDevice
-import android.hardware.camera2.CaptureFailure
 import android.hardware.camera2.CaptureRequest
-import android.hardware.camera2.CaptureResult
-import android.hardware.camera2.TotalCaptureResult
 import android.media.MediaRecorder
 import android.media.MediaScannerConnection
-import android.os.Handler
 import android.util.Log
 import android.util.Range
 import android.view.Surface
@@ -18,8 +14,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.io.File
-import java.lang.Exception
-import java.lang.RuntimeException
 import java.util.*
 
 /**
@@ -41,7 +35,6 @@ internal class VideoRecorderSessionImpl(
     private val context: Context,
     private val configuration: VideoRecorderConfiguration,
     private val mediaRecorderFactory: MediaRecorderFactory,
-    private val handler: Handler,
     private val recorderSurface: Surface,
     /** 利用側でプレビューなどに使うsurface群 */
     private val extraSurfaces: ArrayList<Surface>,
@@ -69,7 +62,6 @@ internal class VideoRecorderSessionImpl(
     suspend fun startRecording() {
         mutex.withLock {
             recorder = mediaRecorderFactory.create(configuration, recorderSurface)
-            log("startRecording(): start")
             // camera-samples サンプルでは setRepeatingRequest は listener=nullでもhandlerを指定していますが、
             // ドキュメントからもAOSPソースからもhandlerはlistenerの反応スレッドを制御するためだけに使われるようなので、handlerは使わないことにしました。
             // 参考: https://github.com/android/camera-samples/blob/master/Camera2Video/app/src/main/java/com/example/android/camera2/video/fragments/CameraFragment.kt#L254
@@ -77,36 +69,7 @@ internal class VideoRecorderSessionImpl(
             // Start recording repeating requests, which will stop the ongoing preview
             // repeating requests without having to explicitly call `session.stopRepeating`
             // session.setRepeatingRequest(recordRequest, null, handler)
-            // session.setRepeatingRequest(recordRequest, null, null)
-            session.setRepeatingRequest(recordRequest, object: CameraCaptureSession.CaptureCallback() {
-                override fun onCaptureSequenceAborted(session: CameraCaptureSession, sequenceId: Int) {
-                    log("onCaptureSequenceAborted($session, $sequenceId)")
-                }
-
-                override fun onCaptureCompleted(session: CameraCaptureSession, request: CaptureRequest, result: TotalCaptureResult) {
-                    log("onCaptureCompleted($session, $request, $result)")
-                }
-
-                override fun onCaptureFailed(session: CameraCaptureSession, request: CaptureRequest, failure: CaptureFailure) {
-                    log("onCaptureFailed($session, $request, $failure)")
-                }
-
-                override fun onCaptureSequenceCompleted(session: CameraCaptureSession, sequenceId: Int, frameNumber: Long) {
-                    log("onCaptureSequenceCompleted($session, $sequenceId, $frameNumber)")
-                }
-
-                override fun onCaptureStarted(session: CameraCaptureSession, request: CaptureRequest, timestamp: Long, frameNumber: Long) {
-                    log("onCaptureStarted($session, $request, $timestamp, $frameNumber)")
-                }
-
-                override fun onCaptureProgressed(session: CameraCaptureSession, request: CaptureRequest, partialResult: CaptureResult) {
-                    log("onCaptureProgressed($session, $request, $partialResult)")
-                }
-
-                override fun onCaptureBufferLost(session: CameraCaptureSession, request: CaptureRequest, target: Surface, frameNumber: Long) {
-                    log("onCaptureBufferLost($session, $request, $target, $frameNumber)")
-                }
-            }, handler)
+            session.setRepeatingRequest(recordRequest, null, null)
 
             // Finalizes recorder setup and starts recording
             recorder?.apply {
@@ -116,7 +79,6 @@ internal class VideoRecorderSessionImpl(
                 start()
             }
             recordingStartMillis = System.currentTimeMillis()
-            log("startRecording(): end")
         }
     }
 
@@ -129,7 +91,6 @@ internal class VideoRecorderSessionImpl(
      */
     override suspend fun stopRecording(): File {
         mutex.withLock {
-            log("stopRecording(): start")
             // 録画開始後に即時終了するとRuntimeExceptionが出るため、例外をできるだけ出さない対策。
             // 早すぎる場合は少し待つ。
             // Requires recording of at least MIN_REQUIRED_RECORDING_TIME_MILLIS
@@ -150,7 +111,6 @@ internal class VideoRecorderSessionImpl(
             MediaScannerConnection.scanFile(
                     context, arrayOf(configuration.outputFile.absolutePath), null, null)
 
-            log("stopRecording(): end")
             return configuration.outputFile
         }
     }

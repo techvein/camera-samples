@@ -5,8 +5,6 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.hardware.camera2.CameraCaptureSession
 import android.media.MediaCodec
-import android.os.Handler
-import android.os.HandlerThread
 import android.view.Surface
 import androidx.core.content.ContextCompat
 import com.example.android.camera.utils.OrientationLiveData
@@ -24,11 +22,6 @@ class VideoRecorder (
     private val context: Context,
     private val configuration: VideoRecorderConfiguration
 ) {
-    /** [HandlerThread] where all camera operations run */
-    private val backgroundThread = HandlerThread("VideoCallbackThread").apply { start() }
-    /** [Handler] corresponding to [cameraThread] */
-    private val handler  = Handler(backgroundThread.looper)
-
     /** 利用側でプレビューなどに使うsurface群 */
     private var extraSurfaces = ArrayList<Surface>()
     private lateinit var session: CameraCaptureSession
@@ -55,14 +48,13 @@ class VideoRecorder (
     }
 
     suspend fun startRecordingSession(): VideoRecorderSession {
-        val recorderSession = VideoRecorderSessionImpl(context, configuration, mediaRecorderFactory, handler, recorderSurface, extraSurfaces, session, relativeOrientation)
+        val recorderSession = VideoRecorderSessionImpl(context, configuration, mediaRecorderFactory, recorderSurface, extraSurfaces, session, relativeOrientation)
         recorderSession.startRecording()
         return recorderSession
     }
 
     fun release() {
         recorderSurface.release()
-        backgroundThread.quitSafely()
     }
 
     fun setup(session: CameraCaptureSession, extraSurfaces: List<Surface> = emptyList(), relativeOrientation: OrientationLiveData) {
