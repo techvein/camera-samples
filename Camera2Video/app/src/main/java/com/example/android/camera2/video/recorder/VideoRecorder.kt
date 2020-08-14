@@ -7,7 +7,6 @@ import android.hardware.camera2.CameraCaptureSession
 import android.media.MediaCodec
 import android.os.Handler
 import android.os.HandlerThread
-import android.util.Log
 import android.util.Size
 import android.view.Surface
 import androidx.core.content.ContextCompat
