@@ -53,7 +53,6 @@ import com.example.android.camera2.video.CameraActivity
 import com.example.android.camera2.video.R
 import com.example.android.camera2.video.recorder.VideoRecorder
 import com.example.android.camera2.video.recorder.VideoRecorderSession
-import com.example.android.camera2.video.recorder.getPreviewOutputSize
 import kotlinx.android.synthetic.main.fragment_camera.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay

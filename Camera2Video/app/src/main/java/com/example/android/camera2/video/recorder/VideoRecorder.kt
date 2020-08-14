@@ -1,6 +1,8 @@
 package com.example.android.camera2.video.recorder
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.hardware.camera2.CameraCaptureSession
 import android.media.MediaCodec
 import android.os.Handler
@@ -8,11 +10,18 @@ import android.os.HandlerThread
 import android.util.Log
 import android.util.Size
 import android.view.Surface
+import androidx.core.content.ContextCompat
 import com.example.android.camera.utils.OrientationLiveData
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 
+/**
+ * 録画制御のためのインスタンス。
+ * カメラが開いて閉じるまでの間のみ利用可能で、録画前にsetupを呼ぶ必要があります。
+ * また、録画の利用には VideoRecorder::requiredPermissions(withAudio: Boolean) で得られる権限が必要です(withAudio=trueなら音声ありの権限、falseなら音声なしの権限)。
+ *
+ */
 class VideoRecorder (
     private val context: Context,
     /** ビデオ録画サイズ */
@@ -78,6 +87,16 @@ class VideoRecorder (
         this.relativeOrientation = relativeOrientation
     }
 
+    /** 権限が足りているかのチェックをして、1つでも足りてなければ false を返す。 */
+    fun hasPermissions() = requiredPermissions().all {
+        ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
+    }
+
+    /**
+     * このインスタンス設定で必要なパーミッション一覧を取得する。
+     */
+    fun requiredPermissions() = requiredPermissions(configuration.withAudio)
+
     companion object {
         private val TAG = VideoRecorder::class.java.simpleName
 
@@ -92,8 +111,13 @@ class VideoRecorder (
          */
         @SuppressWarnings
         const val FILE_EXT = "mp4"
-    }
-    private fun log(msg: String) {
-        Log.d(TAG, msg)
+
+        /**
+         * 必要なパーミッション。
+         */
+        fun requiredPermissions(withAudio: Boolean): Array<String> {
+            return arrayOf(Manifest.permission.CAMERA) +
+                    if(withAudio) { arrayOf(Manifest.permission.RECORD_AUDIO) } else emptyArray()
+        }
     }
 }

@@ -4,6 +4,9 @@ import android.media.MediaRecorder
 import android.view.Surface
 import java.io.File
 
+/**
+ * recorder パッケージ内で使うためのMediaRecorderインスタンス生成器
+ */
 internal class MediaRecorderFactory() {
     /** Creates a [MediaRecorder] instance using the provided [Surface] as input */
     fun create(configuration: VideoRecorderConfiguration, inputSurface: Surface, outputFile: File? = null, dummy: Boolean = false) = MediaRecorder().apply {
