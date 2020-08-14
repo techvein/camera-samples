@@ -26,7 +26,7 @@ class VideoRecorder (
     private val context: Context,
     /** ビデオ録画サイズ */
     videoSize: Size,
-    /** ビデオ録画FPS */
+    /** ビデオ録画FPS。VideoCameraHelper::getFps()で計算可能です。 */
     videoFps: Int,
     /** 音声録画するか */
     withAudio: Boolean,
