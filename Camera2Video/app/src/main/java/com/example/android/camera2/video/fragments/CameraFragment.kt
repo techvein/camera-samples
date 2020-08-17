@@ -47,7 +47,7 @@ import androidx.navigation.NavController
 import androidx.navigation.Navigation
 import androidx.navigation.fragment.navArgs
 import com.example.android.camera.utils.AutoFitSurfaceView
-import com.example.android.camera.utils.OrientationLiveData
+import com.example.android.camera2.video.recorder.OrientationLiveData
 import com.example.android.camera2.video.BuildConfig
 import com.example.android.camera2.video.CameraActivity
 import com.example.android.camera2.video.R

@@ -7,7 +7,6 @@ import android.hardware.camera2.CameraCaptureSession
 import android.media.MediaCodec
 import android.view.Surface
 import androidx.core.content.ContextCompat
-import com.example.android.camera.utils.OrientationLiveData
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
