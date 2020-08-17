@@ -24,8 +24,6 @@ class VideoRecorder (
     /** 利用側でプレビューなどに使うsurface群 */
     private var extraSurfaces = ArrayList<Surface>()
     private lateinit var session: CameraCaptureSession
-    /** Live data listener for changes in the device orientation relative to the camera */
-    private lateinit var relativeOrientation: OrientationLiveData
 
     private val mediaRecorderFactory = MediaRecorderFactory()
 
@@ -46,9 +44,9 @@ class VideoRecorder (
         surface
     }
 
-    suspend fun startRecordingSession(): VideoRecorderSession {
-        val recorderSession = VideoRecorderSessionImpl(context, configuration, mediaRecorderFactory, recorderSurface, extraSurfaces, session, relativeOrientation)
-        recorderSession.startRecording()
+    suspend fun startRecordingSession(orientationDegree: Int?): VideoRecorderSession {
+        val recorderSession = VideoRecorderSessionImpl(context, configuration, mediaRecorderFactory, recorderSurface, extraSurfaces, session)
+        recorderSession.startRecording(orientationDegree)
         return recorderSession
     }
 
@@ -56,10 +54,9 @@ class VideoRecorder (
         recorderSurface.release()
     }
 
-    fun setup(session: CameraCaptureSession, extraSurfaces: List<Surface> = emptyList(), relativeOrientation: OrientationLiveData) {
+    fun setup(session: CameraCaptureSession, extraSurfaces: List<Surface> = emptyList()) {
         this.extraSurfaces = ArrayList(extraSurfaces)
         this.session = session
-        this.relativeOrientation = relativeOrientation
     }
 
     /** 権限が足りているかのチェックをして、1つでも足りてなければ false を返す。 */

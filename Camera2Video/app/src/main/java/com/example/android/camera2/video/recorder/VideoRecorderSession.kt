@@ -37,9 +37,7 @@ internal class VideoRecorderSessionImpl(
     private val recorderSurface: Surface,
     /** 利用側でプレビューなどに使うsurface群 */
     private val extraSurfaces: ArrayList<Surface>,
-    private val session: CameraCaptureSession,
-    /** Live data listener for changes in the device orientation relative to the camera */
-    private val relativeOrientation: OrientationLiveData
+    private val session: CameraCaptureSession
 ): VideoRecorderSession {
 
     private var recordingStartMillis: Long = 0L
@@ -58,7 +56,7 @@ internal class VideoRecorderSessionImpl(
         }.build()
     }
 
-    suspend fun startRecording() {
+    suspend fun startRecording(orientationDegree: Int?) {
         mutex.withLock {
             recorder = mediaRecorderFactory.create(configuration, recorderSurface)
             // camera-samples サンプルでは setRepeatingRequest は listener=nullでもhandlerを指定していますが、
@@ -73,7 +71,7 @@ internal class VideoRecorderSessionImpl(
             // Finalizes recorder setup and starts recording
             recorder?.apply {
                 // Sets output orientation based on current sensor value at start time
-                relativeOrientation.value?.let { setOrientationHint(it) }
+                orientationDegree?.let { setOrientationHint(it) }
                 prepare()
                 start()
             }

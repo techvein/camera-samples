@@ -226,7 +226,7 @@ class CameraFragment : Fragment() {
         //  session.stopRepeating() is called
         session.setRepeatingRequest(previewRequest, null, cameraHandler)
 
-        _videoRecorder.setup(session, listOf(viewFinder.holder.surface), relativeOrientation)
+        _videoRecorder.setup(session, listOf(viewFinder.holder.surface))
 
         // React to user touching the capture button
         capture_button.setOnClickListener { _ ->
@@ -239,7 +239,7 @@ class CameraFragment : Fragment() {
                         requireActivity().requestedOrientation =
                                 ActivityInfo.SCREEN_ORIENTATION_LOCKED
 
-                        videoRecordingSession = videoRecorder.startRecordingSession()
+                        videoRecordingSession = videoRecorder.startRecordingSession(relativeOrientation.value)
                         Log.d(TAG, "Recording started")
 
                         // Starts recording animation
