@@ -64,14 +64,14 @@ class VideoRecorder (
     }
 
     /** 権限が足りているかのチェックをして、1つでも足りてなければ false を返す。 */
-    fun hasPermissions() = requiredPermissions().all {
+    fun hasEnoughPermissions() = getRequiredPermissions().all {
         ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
     }
 
     /**
      * このインスタンス設定で必要なパーミッション一覧を取得する。
      */
-    fun requiredPermissions() = requiredPermissions(configuration.withAudio)
+    fun getRequiredPermissions() = getRequiredPermissions(configuration.withAudio)
 
     companion object {
         /** Creates a [File] named with the current date and time */
@@ -89,7 +89,7 @@ class VideoRecorder (
         /**
          * 必要なパーミッション。
          */
-        fun requiredPermissions(withAudio: Boolean): Array<String> {
+        fun getRequiredPermissions(withAudio: Boolean): Array<String> {
             return arrayOf(Manifest.permission.CAMERA) +
                     if(withAudio) { arrayOf(Manifest.permission.RECORD_AUDIO) } else emptyArray()
         }
