@@ -93,5 +93,10 @@ class VideoRecorder (
             return arrayOf(Manifest.permission.CAMERA) +
                     if(withAudio) { arrayOf(Manifest.permission.RECORD_AUDIO) } else emptyArray()
         }
+
+        /** 権限が足りているかのチェックをして、1つでも足りてなければ false を返す。 */
+        fun hasEnoughPermissions(context: Context, withAudio: Boolean) = getRequiredPermissions(withAudio = withAudio).all {
+            ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
+        }
     }
 }
