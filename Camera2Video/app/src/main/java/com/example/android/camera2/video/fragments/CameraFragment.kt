@@ -30,6 +30,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
 import android.util.Log
+import android.util.Range
 import android.util.Size
 import android.view.LayoutInflater
 import android.view.Surface
@@ -209,7 +210,7 @@ class CameraFragment : Fragment() {
                 requireContext(),
                 VideoRecorderConfiguration(
                         Size(args.width, args.height),
-                        args.fps,
+                        Range(args.fps, args.fps),
                         true,
                         VideoRecorder.createFile(requireContext())
                 )

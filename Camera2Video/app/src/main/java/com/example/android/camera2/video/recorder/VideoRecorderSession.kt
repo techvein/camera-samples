@@ -52,7 +52,7 @@ internal class VideoRecorderSessionImpl(
             extraSurfaces.forEach { addTarget(it) }
             addTarget(recorderSurface)
             // Sets user requested FPS for all targets
-            set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, Range(configuration.videoFps, configuration.videoFps))
+            if (configuration.videoFps != null) set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, configuration.videoFps)
         }.build()
     }
 
@@ -137,4 +137,3 @@ internal class VideoRecorderSessionImpl(
         Log.d(TAG, msg)
     }
 }
-

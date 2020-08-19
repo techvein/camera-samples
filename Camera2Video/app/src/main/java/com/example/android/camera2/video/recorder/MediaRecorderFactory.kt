@@ -18,7 +18,7 @@ internal class MediaRecorderFactory() {
         setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
         setOutputFile(configuration.outputFile.absolutePath)
         setVideoEncodingBitRate(VIDEO_BITRATE)
-        if (configuration.videoFps > 0) setVideoFrameRate(configuration.videoFps)
+        if (configuration.videoFps != null) setVideoFrameRate(configuration.videoFps.lower) // upper とどっちがいいか？
         setVideoSize(configuration.videoSize.width, configuration.videoSize.height)
         setVideoEncoder(MediaRecorder.VideoEncoder.H264)
         if (configuration.withAudio) {
