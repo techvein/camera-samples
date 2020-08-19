@@ -104,10 +104,6 @@ internal class VideoRecorderSessionImpl(
                 release()
             }
 
-            // Broadcasts the media file to the rest of the system
-            MediaScannerConnection.scanFile(
-                    context, arrayOf(configuration.outputFile.absolutePath), null, null)
-
             return configuration.outputFile
         }
     }

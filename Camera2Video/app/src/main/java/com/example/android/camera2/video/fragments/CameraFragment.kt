@@ -26,6 +26,7 @@ import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CaptureRequest
+import android.media.MediaScannerConnection
 import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
@@ -252,6 +253,10 @@ class CameraFragment : Fragment() {
                     val outputFile: File
                     try {
                         outputFile = videoRecordingSession.stopRecording()
+                        // Broadcasts the media file to the rest of the system
+                        MediaScannerConnection.scanFile(
+                                context, arrayOf(outputFile.absolutePath), null, null)
+
                     } catch (e: RecordingException) {
                         Log.d(TAG, "failed to stop recording: $e")
                         return@whenResumed
