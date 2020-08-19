@@ -172,26 +172,28 @@ internal class VideoRecorderSessionImpl(
 
     override suspend fun stopRecording(): File {
         mutex.withLock {
-            // 録画開始後に即時終了するとRuntimeExceptionが出るため、例外をできるだけ出さない対策。
-            // 早すぎる場合は少し待つ。
-            // Requires recording of at least MIN_REQUIRED_RECORDING_TIME_MILLIS
-            val elapsedTimeMillis = System.currentTimeMillis() - recordingStartMillis
-            if (elapsedTimeMillis < MIN_REQUIRED_RECORDING_TIME_MILLIS) {
-                delay(MIN_REQUIRED_RECORDING_TIME_MILLIS - elapsedTimeMillis)
-            }
-
-            val recorder = recorder ?: throw RecordingException("Missing MediaRecorder(maybe already stopped)")
             try {
-                recorder.stop()
-            } catch(e: java.lang.IllegalStateException) {
-                throw RecordingException(e.message, e)
-            } catch(e: RuntimeException) {
-                throw RecordingException("MediaRecorder stopped too early. ${e.message}", e)
-            } finally {
+                // 録画開始後に即時終了するとRuntimeExceptionが出るため、例外をできるだけ出さない対策。
+                // 早すぎる場合は少し待つ。
+                // Requires recording of at least MIN_REQUIRED_RECORDING_TIME_MILLIS
+                val elapsedTimeMillis = System.currentTimeMillis() - recordingStartMillis
+                if (elapsedTimeMillis < MIN_REQUIRED_RECORDING_TIME_MILLIS) {
+                    delay(MIN_REQUIRED_RECORDING_TIME_MILLIS - elapsedTimeMillis)
+                }
+
+                val recorder = recorder ?: throw RecordingException("Missing MediaRecorder(maybe already stopped)")
+                try {
+                    recorder.stop()
+                } catch (e: java.lang.IllegalStateException) {
+                    throw RecordingException(e.message, e)
+                } catch (e: RuntimeException) {
+                    throw RecordingException("MediaRecorder stopped too early. ${e.message}", e)
+                }
+
+                return configuration.outputFile
+            } finally { // キャンセルされてもエラーしても解放処理は行う。
                 releaseRecorder()
             }
-
-            return configuration.outputFile
         }
     }
 
