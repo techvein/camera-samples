@@ -5,14 +5,19 @@ import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CaptureRequest
 import android.media.MediaRecorder
-import android.media.MediaScannerConnection
+import android.os.Build
 import android.util.Log
-import android.util.Range
 import android.view.Surface
+import androidx.annotation.RequiresApi
+import com.example.android.camera2.video.BuildConfig
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import java.io.File
+import java.lang.IllegalStateException
+import java.lang.UnsupportedOperationException
 import java.util.*
 
 /**
@@ -21,14 +26,45 @@ import java.util.*
  */
 interface VideoRecorderSession {
     /**
-     * 録画停止する。
+     * 録画停止しているか。stopまたはcancelするとtrueになります。
+     */
+    val isStopped: Boolean
+
+    /**
+     * 録画中断しているか。isStopped == false のときのみ意味があるパラメータです。
+     */
+    val isPaused: Boolean
+
+    /**
+     * 録画を中断する。
+     *
+     * @return 中断中にエラーがでた、もしくは中断できないステータスのときはfalse。
+     * @throws UnsupportedOperationException Android N 未満での実行時
+     */
+    @RequiresApi(Build.VERSION_CODES.N)
+    suspend fun pause(): Boolean
+
+    /**
+     * 録画を再開する。
+     *
+     * @return 再開中にエラーがでた、もしくは中断できないステータスのときはfalse。
+     * @throws UnsupportedOperationException Android N 未満での実行時
+     */
+    @RequiresApi(Build.VERSION_CODES.N)
+    suspend fun resume(): Boolean
+
+    /**
+     * レコーディングを停止して、出力ファイルを返す。
+     * インスタンスあたりのoutputFileは固定(コンストラクタのconfiguration.outputFile)なので、このメソッドは常に同一ファイルインスタンスを返します。
+     * @exception RecordingException 録画開始から終了が早すぎる場合に発生します。遅延することでなるべく出ないようにしていますが、負荷が高い場合などに起こる可能性がありそうです。また、すでに停止済みなどの状態異常時にも発生します。
      */
     suspend fun stopRecording(): File
 
     /**
-     * 録画を中断する。
+     * 録画を中断して終了処理を行う。
+     * すでに停止済やキャンセル済の場合もエラーせず動作します。
      */
-    fun cancel()
+    suspend fun cancel()
 }
 internal class VideoRecorderSessionImpl(
     private val context: Context,
@@ -56,8 +92,16 @@ internal class VideoRecorderSessionImpl(
         }.build()
     }
 
+    override val isStopped: Boolean
+        get() = recorder == null
+
+    override var isPaused: Boolean = false
+        private set
+
     suspend fun startRecording(orientationDegree: Int?) {
         mutex.withLock {
+            if (recorder != null) throw IllegalStateException("Already started.")
+
             recorder = mediaRecorderFactory.create(configuration, recorderSurface)
             // camera-samples サンプルでは setRepeatingRequest は listener=nullでもhandlerを指定していますが、
             // ドキュメントからもAOSPソースからもhandlerはlistenerの反応スレッドを制御するためだけに使われるようなので、handlerは使わないことにしました。
@@ -81,11 +125,51 @@ internal class VideoRecorderSessionImpl(
 
     private val mutex = Mutex()
 
+    @Suppress("UNREACHABLE_CODE")
+    override suspend fun pause(): Boolean {
+        // MediaRecorder.pause() は Android N 以上でないと使えない機能
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
+            throw UnsupportedOperationException()
+        }
+
+        return mutex.withLock {
+            withSafeRecorder("pause") { recorder ->
+                recorder.pause()
+                isPaused = true
+            }
+        }
+    }
+
+    @Suppress("UNREACHABLE_CODE")
+    override suspend fun resume(): Boolean {
+        // MediaRecorder.resume() は Android N 以上でないと使えない機能
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
+            throw UnsupportedOperationException()
+        }
+
+        return mutex.withLock {
+            withSafeRecorder("resume") { recorder ->
+                recorder.resume()
+                isPaused = false
+            }
+        }
+    }
+
     /**
-     * レコーディングを停止して、出力ファイルを返す。
-     * インスタンスあたりのoutputFileは固定(コンストラクタでの指定またはインスタンス化時の自動生成)なので、このメソッドは常に同一ファイルインスタンスを返します。
-     * @exception RecordingException 録画開始から終了が早すぎる場合に発生します。遅延することでなるべく出ないようにしていますが、負荷が高い場合などに起こる可能性がありそうです。
+     * recorderを取得してfnを実行する。recorder==nullの場合や例外が出たときは黙ってfalseを返す。
      */
+    private fun withSafeRecorder(operationDescription: String, fn: (recorder: MediaRecorder) -> Unit): Boolean {
+        try {
+            val recorder = recorder ?: return false
+            fn(recorder)
+            return true
+        } catch (e: Throwable) { // IllegalStateException
+            log("Failed to $operationDescription: $e")
+            log(e)
+            return false
+        }
+    }
+
     override suspend fun stopRecording(): File {
         mutex.withLock {
             // 録画開始後に即時終了するとRuntimeExceptionが出るため、例外をできるだけ出さない対策。
@@ -96,31 +180,47 @@ internal class VideoRecorderSessionImpl(
                 delay(MIN_REQUIRED_RECORDING_TIME_MILLIS - elapsedTimeMillis)
             }
 
+            val recorder = recorder ?: throw RecordingException("Missing MediaRecorder(maybe already stopped)")
             try {
-                recorder?.stop()
+                recorder.stop()
+            } catch(e: java.lang.IllegalStateException) {
+                throw RecordingException(e.message, e)
             } catch(e: RuntimeException) {
                 throw RecordingException("MediaRecorder stopped too early. ${e.message}", e)
             } finally {
-                release()
+                releaseRecorder()
             }
 
             return configuration.outputFile
         }
     }
 
-    /** レコーディングを中断する。 */
-    override fun cancel() {
-        try {
-            recorder?.stop()
-        } catch (e: RuntimeException) {
-            // 早すぎるストップ時に RuntimeException を起こすが、キャンセル時は何も行う必要がないので無視する。
-            // 詳細はMediaRecorder.stop() のドキュメント参照。
-            log("Suppress RuntimeException caused by MediaRecorder.stop(): $e")
+    override suspend fun cancel() {
+        // 終了処理はコルーチンをキャンセルさせたくない。
+        withContext(NonCancellable) {
+            mutex.withLock {
+                if (recorder == null) {
+                    //　すでに終了済みなら何もしなくてよい。
+                    return@withLock
+                }
+
+                //　キャンセル処理
+                withSafeRecorder("cancel") {
+                    recorder?.stop()
+                }
+                // 中断後、ゴミが残らないようにstopの成否によらずファイルを消しておく。
+                try {
+                    configuration.outputFile.delete()
+                } catch (_: Exception) {
+                    // 削除失敗は気にしない。
+                }
+
+                releaseRecorder()
+            }
         }
-        release()
     }
 
-    private fun release() {
+    private fun releaseRecorder() {
         recorder?.release()
         recorder = null
     }
@@ -130,6 +230,11 @@ internal class VideoRecorderSessionImpl(
         private const val MIN_REQUIRED_RECORDING_TIME_MILLIS: Long = 1000L
     }
     private fun log(msg: String) {
+        if (!BuildConfig.DEBUG) { return }
         Log.d(TAG, msg)
+    }
+    private fun log(e: Throwable) {
+        if (!BuildConfig.DEBUG) { return }
+        e.printStackTrace()
     }
 }

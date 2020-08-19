@@ -353,17 +353,19 @@ class CameraFragment : Fragment() {
         super.onStop()
         Log.d(TAG, "onStop()")
         isCameraActive = false
-        try {
-            val videoRecordingSession = videoRecordingSession
-            if (videoRecordingSession != null) {
-                videoRecordingSession.cancel()
-                clearRecordingState()
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                val videoRecordingSession = videoRecordingSession
+                if (videoRecordingSession != null) {
+                    videoRecordingSession.cancel()
+                    clearRecordingState()
+                }
+                videoRecorder?.release()
+                videoRecorder = null
+                camera.close()
+            } catch (exc: Throwable) {
+                Log.e(TAG, "Error closing camera", exc)
             }
-            videoRecorder?.release()
-            videoRecorder = null
-            camera.close()
-        } catch (exc: Throwable) {
-            Log.e(TAG, "Error closing camera", exc)
         }
     }
 
